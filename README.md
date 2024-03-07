@@ -1,2 +1,2 @@
-# transformer-api
-simple api for transformer models
+sd-api
+simple api for stable diffusion models
