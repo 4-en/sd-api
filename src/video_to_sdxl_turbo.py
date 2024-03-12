@@ -8,7 +8,7 @@ def image2image(image_data, prompt=None):
     # send request
     url = "http://localhost:8000/image2image"
 
-    prompt = prompt or "a hairy ape, high quality, high resolution"
+    prompt = prompt or "pennywise, stephen king, IT, horror, clown, high quality, high resolution"
 
     data = {
         "image_data": image_data,
@@ -16,7 +16,7 @@ def image2image(image_data, prompt=None):
         "num_inference_steps": 2,
         "guidance_scale": 0.0,
         "seed": 123,
-        "strength": 0.8
+        "strength": 0.7
     }
 
     response = requests.post(url, json=data)
@@ -49,7 +49,7 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
             frame, t_start = processed_frame_queue.get()
             d_time = time.time() - last_frame_time
             last_frame_time = time.time()
-            
+
             # fps top left
             cv2.putText(frame, f"FPS: {1 / d_time:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             last_frame = frame
@@ -115,7 +115,7 @@ def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps)
 
 if __name__ == "__main__":
     batch_size = 1
-    target_fps = 10  # For example, to achieve a frame rate of 10 FPS
+    target_fps = 10
 
     frame_queue = Queue()
     processed_frame_queue = Queue()
