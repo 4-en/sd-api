@@ -3,8 +3,11 @@ from diffusers import AutoPipelineForText2Image
 from diffusers import AutoPipelineForImage2Image
 
 import torch
+import torchvision.transforms as transforms
 import random
 import base64
+import PIL
+from io import BytesIO
 
 # fastapi
 from fastapi import FastAPI
@@ -22,6 +25,7 @@ class Image2ImageRequest(BaseModel):
     seed: int = -1
     num_inference_steps: int = 2
     guidance_scale: float = 0.0
+    strength: float = 0.5 # noise strength
 
 class Image2ImageResponse(BaseModel):
     image_data: str | list[str] # base64 encoded image or list of base64 encoded images
@@ -34,6 +38,13 @@ class SdTurboApi:
         self.image2image = AutoPipelineForImage2Image.from_pretrained("stabilityai/sd-turbo", torch_dtype=torch.float16, variant="fp16")
         self.image2image.to("cuda")
 
+        self.transform = transforms.Compose([
+            transforms.Resize((512,512)),
+            transforms.ToTensor()
+        ])
+
+        self.to_PIL = transforms.ToPILImage()
+
         @self.app.post("/image2image")
         async def image2image(request: Image2ImageRequest):
             image_data = request.image_data
@@ -43,33 +54,49 @@ class SdTurboApi:
                 seed = random.randint(0, 1000000)
             num_inference_steps = request.num_inference_steps
             guidance_scale = request.guidance_scale
+            strength = request.strength
+
+            # print(f"seed: {seed}, strength: {strength}")
 
             if isinstance(image_data, str):
                 image_data = [image_data]
+
 
             # convert images from base64 to PIL
             converted_images = []
             for img in image_data:
                 img = base64.b64decode(img)
+                img = PIL.Image.open(BytesIO(img))
                 converted_images.append(img)
 
             # convert PIL to torch tensor
             image_data = []
             for img in converted_images:
-                image = self.image2image.load_image(img).resize((512, 512))
-                image_data.append(image)            
+                img = self.transform(img)
+                image_data.append(img)
 
             images = []
+
             for img in image_data:
-                image = self.image2image(prompt, image=img, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, seed=seed).images[0]
-                images.append(image)
+                rand_gen = torch.Generator(device="cuda").manual_seed(seed)
+
+                neg_prompt = "low quality, deformed, distorted, corrupted, glitch, error, noise, artifact, low resolution, low res"
+                image = self.image2image(prompt, image=img, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, neg_prompt=neg_prompt, strength=strength, generator=rand_gen)[0]
+                if type(image) == list or type(image) == tuple:
+                    for i in image:
+                        images.append(i)
+                else:
+                    images.append(image)
 
             # convert images from torch tensor to base64
             converted_images = []
             for img in images:
-                img = self.image2image.to_pil_image(img)
-                img = self.image2image.to_base64(img)
+                buffer = BytesIO()
+                img.save(buffer, format="JPEG")
+                img = base64.b64encode(buffer.getvalue()).decode()
                 converted_images.append(img)
+
+            print(len(converted_images))
 
             return Image2ImageResponse(image_data=converted_images)
         
