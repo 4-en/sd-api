@@ -32,6 +32,9 @@ def main():
     image2image.to("cuda")
     image2image.enable_xformers_memory_efficient_attention()
 
+    # compile unet (windows not supported)
+    #image2image.unet = torch.compile(image2image.unet, mode="reduce-overhead", fullgraph=True)
+
     inputs = create_random_input(args.size, args.batch_size)
 
     # warmup
