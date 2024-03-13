@@ -30,6 +30,7 @@ def main():
 
     image2image = AutoPipelineForImage2Image.from_pretrained(args.model, torch_dtype=torch.float16, variant="fp16")
     image2image.to("cuda")
+    image2image.enable_xformers_memory_efficient_attention()
 
     start = time.time()
     for _ in range(0, args.images, args.batch_size):
