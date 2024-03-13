@@ -6,6 +6,14 @@ import random
 
 SEED = 123
 
+PROMPTS = [
+    "a picture of a cute cat",
+    "an expressionist painting by Picasso",
+    "a picture of a robot in the rain, sci-fi style, futuristic, neon lights, light reflections",
+    "a hairy ape with a banana",
+    "picture of a lego world with lego people, lego, lego bricks, blocks, colorful"
+]
+
 def randomize_seed():
     global SEED
     print("Randomizing seed")
@@ -16,16 +24,16 @@ def image2image(image_data, prompt=None):
     # send request
     url = "http://10.35.2.135:8000/image2image"
 
-    prompt = prompt or "a picture of a hairy ape"
+    prompt = prompt or "a picture of a cute cat"
 
     data = {
         "image_data": image_data,
         "prompt": prompt,
         "num_inference_steps": 2,
-        "guidance_scale": 0.0,
+        "guidance_scale": 1.0,
         "seed": SEED,
-        "strength": 0.6,
-        "size": (1024, 1024)
+        "strength": 0.8,
+        "size": (512, 512)
     }
 
     response = requests.post(url, json=data)
@@ -57,7 +65,7 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
         if not processed_frame_queue.empty():
             frame, t_start = processed_frame_queue.get()
             # scale to 1024x1024
-            #frame = cv2.resize(frame, (1024, 1024))
+            frame = cv2.resize(frame, (1024, 1024))
             d_time = time.time() - last_frame_time
             last_frame_time = time.time()
 
@@ -90,14 +98,26 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
             
             time.sleep(target_fps / 2000)
 
+    running = False
+
 def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps):
     cap = cv2.VideoCapture(0)
     batch = []
     next_frame_time = time.time() + 1 / target_fps
 
+    prompt_idx = 0
+    last_prompt_change = time.time()
+    time_per_prompt = 10
+
     global running
     while running:
         t_start = time.time()
+
+        if t_start - last_prompt_change > time_per_prompt:
+            prompt_idx = (prompt_idx + 1) % len(PROMPTS)
+            last_prompt_change = t_start
+            randomize_seed()
+
 
         if t_start >= next_frame_time:
             ret, frame = cap.read()
@@ -109,8 +129,11 @@ def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps)
             scale = 512 / frame.shape[0]
             frame = cv2.resize(frame, (int(frame.shape[1] * scale), 512))
 
+            
+
             # crop 512x512
             frame = frame[:, frame.shape[1] // 2 - 256:frame.shape[1] // 2 + 256]
+
 
             # Convert image to base64 for processing
             _, buffer = cv2.imencode('.jpg', frame)
@@ -118,8 +141,11 @@ def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps)
             batch.append(image_data)
 
             if len(batch) == batch_size:
+
+                prompt = PROMPTS[prompt_idx]
+
                 # Send batch for processing
-                processed_images = image2image(batch)  # Assuming this function processes the batch
+                processed_images = image2image(batch, prompt=prompt) # Assuming this function processes the batch
                 
                 # Assuming processed_images is a list of base64 images
                 for img_bytes in processed_images:
@@ -132,6 +158,8 @@ def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps)
             next_frame_time += 1 / target_fps
 
     cap.release()
+
+    running = False
 
 if __name__ == "__main__":
     batch_size = 1
