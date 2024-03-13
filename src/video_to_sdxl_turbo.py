@@ -2,21 +2,29 @@ import cv2
 import requests
 import base64
 import numpy as np
+import random
 
+SEED = 123
+
+def randomize_seed():
+    global SEED
+    print("Randomizing seed")
+    SEED = random.randint(0, 1000000)
 
 def image2image(image_data, prompt=None):
+    global SEED
     # send request
     url = "http://10.35.2.135:8000/image2image"
 
-    prompt = prompt or "pennywise, stephen king, IT, horror, clown, high quality, high resolution"
+    prompt = prompt or "inside of a spaceship with a view of stars through the window, space, galaxy, universe, star wars"
 
     data = {
         "image_data": image_data,
         "prompt": prompt,
         "num_inference_steps": 2,
         "guidance_scale": 0.0,
-        "seed": 123,
-        "strength": 0.7
+        "seed": SEED,
+        "strength": 0.6
     }
 
     response = requests.post(url, json=data)
@@ -47,6 +55,8 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
     while running:
         if not processed_frame_queue.empty():
             frame, t_start = processed_frame_queue.get()
+            # scale to 1024x1024
+            frame = cv2.resize(frame, (1024, 1024))
             d_time = time.time() - last_frame_time
             last_frame_time = time.time()
 
@@ -62,12 +72,21 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
             if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Processed Frame', cv2.WND_PROP_VISIBLE) < 1:
                 running = False
                 break
+
+            # change seed if s is pressed
+            if cv2.waitKey(1) & 0xFF == ord('s'):
+                randomize_seed()
         else:
             if last_frame is not None:
                 cv2.imshow('Processed Frame', last_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Processed Frame', cv2.WND_PROP_VISIBLE) < 1:
                     running = False
                     break
+
+                # change seed if s is pressed
+                if cv2.waitKey(1) & 0xFF == ord('s'):
+                    randomize_seed()
+            
             time.sleep(target_fps / 2000)
 
 def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps):
