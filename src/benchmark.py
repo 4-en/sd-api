@@ -33,9 +33,11 @@ def main():
     image2image.enable_xformers_memory_efficient_attention()
 
     start = time.time()
+    inputs = create_random_input(args.size, args.batch_size)
     for _ in range(0, args.images, args.batch_size):
-        input = create_random_input(args.size, args.batch_size)
-        _ = image2image(["a picture of a cute cat"]*args.batch_size, input, num_inference_steps=args.steps, strength=strength)
+        outputs = image2image(["a picture of a cute cat"]*args.batch_size, inputs, num_inference_steps=args.steps, strength=strength)[0]
+        # use outputs as new inputs
+        inputs = outputs
     end = time.time()
     fps = args.images / (end - start)
     print(f"Time for {args.images} images: {end - start}")
