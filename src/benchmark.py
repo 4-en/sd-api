@@ -17,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description='Benchmark diffusers')
     parser.add_argument('--images', type=int, default=20, help='Number of images to benchmark')
     parser.add_argument('--model', type=str, default="stabilityai/sd-turbo", help='Model to benchmark')
-    parser.add_argument('--steps', type=int, default=2, help='Number of inference steps')
+    parser.add_argument('--steps', type=int, default=1, help='Number of inference steps')
     parser.add_argument('--size', type=int, default=512, help='Size of images')
     parser.add_argument('--batch_size', type=int, default=2, help='Batch size')
 

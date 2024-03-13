@@ -6,7 +6,7 @@ import numpy as np
 
 def image2image(image_data, prompt=None):
     # send request
-    url = "http://localhost:8000/image2image"
+    url = "http://10.35.2.135:8000/image2image"
 
     prompt = prompt or "pennywise, stephen king, IT, horror, clown, high quality, high resolution"
 
