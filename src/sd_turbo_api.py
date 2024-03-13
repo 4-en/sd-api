@@ -26,6 +26,7 @@ class Image2ImageRequest(BaseModel):
     num_inference_steps: int = 2
     guidance_scale: float = 0.0
     strength: float = 0.5 # noise strength
+    size: tuple[int, int] = (512, 512)
 
 class Image2ImageResponse(BaseModel):
     image_data: str | list[str] # base64 encoded image or list of base64 encoded images
@@ -37,6 +38,7 @@ class SdTurboApi:
         self.app = FastAPI()
         self.image2image = AutoPipelineForImage2Image.from_pretrained("stabilityai/sd-turbo", torch_dtype=torch.float16, variant="fp16")
         self.image2image.to("cuda")
+        self.image2image.enable_xformers_memory_efficient_attention() # enable memory efficient attention
 
         self.transform = transforms.Compose([
             transforms.Resize((512,512)),
@@ -55,6 +57,13 @@ class SdTurboApi:
             num_inference_steps = request.num_inference_steps
             guidance_scale = request.guidance_scale
             strength = request.strength
+            size = request.size
+
+            # change transform
+            self.transform = transforms.Compose([
+                transforms.Resize(size),
+                transforms.ToTensor()
+            ])
 
             # print(f"seed: {seed}, strength: {strength}")
 
