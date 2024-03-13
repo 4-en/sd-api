@@ -16,7 +16,7 @@ def image2image(image_data, prompt=None):
     # send request
     url = "http://10.35.2.135:8000/image2image"
 
-    prompt = prompt or "inside of a spaceship with a view of stars through the window, space, galaxy, universe, star wars"
+    prompt = prompt or "a picture of a hairy ape"
 
     data = {
         "image_data": image_data,
@@ -24,7 +24,8 @@ def image2image(image_data, prompt=None):
         "num_inference_steps": 2,
         "guidance_scale": 0.0,
         "seed": SEED,
-        "strength": 0.6
+        "strength": 0.6,
+        "size": (1024, 1024)
     }
 
     response = requests.post(url, json=data)
@@ -56,7 +57,7 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
         if not processed_frame_queue.empty():
             frame, t_start = processed_frame_queue.get()
             # scale to 1024x1024
-            frame = cv2.resize(frame, (1024, 1024))
+            #frame = cv2.resize(frame, (1024, 1024))
             d_time = time.time() - last_frame_time
             last_frame_time = time.time()
 
