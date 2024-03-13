@@ -40,12 +40,14 @@ def main():
 
     print("Starting benchmark")
     start = time.time()
+    processed_count = 0
     for _ in range(0, args.images, args.batch_size):
         outputs = image2image(["a picture of a cute cat"]*args.batch_size, inputs, num_inference_steps=args.steps, strength=strength)[0]
         # use outputs as new inputs
         inputs = outputs
+        processed_count += args.batch_size
     end = time.time()
-    fps = args.images / (end - start)
+    fps = processed_count / (end - start)
     print("Benchmark completed")
     print(f"Time for {args.images} images: {end - start}")
     print(f"FPS: {fps}")
