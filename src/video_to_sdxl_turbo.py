@@ -5,6 +5,7 @@ import numpy as np
 import random
 
 SEED = 123
+SIZE = 512
 
 PROMPTS = [
     "a picture of a cute cat",
@@ -34,7 +35,7 @@ def image2image(image_data, prompt=None):
         "guidance_scale": 1.0,
         "seed": SEED,
         "strength": 0.8,
-        "size": (512, 512)
+        "size": (SIZE, SIZE)
     }
 
     response = requests.post(url, json=data)
@@ -127,13 +128,13 @@ def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps)
                 break
 
             # scale so that hight is 512
-            scale = 512 / frame.shape[0]
-            frame = cv2.resize(frame, (int(frame.shape[1] * scale), 512))
+            scale = SIZE / frame.shape[0]
+            frame = cv2.resize(frame, (int(frame.shape[1] * scale), SIZE))
 
             
 
-            # crop 512x512
-            frame = frame[:, frame.shape[1] // 2 - 256:frame.shape[1] // 2 + 256]
+            # crop SIZExSIZE from the center
+            frame = frame[:, (frame.shape[1] - SIZE) // 2:(frame.shape[1] + SIZE) // 2]
 
 
             # Convert image to base64 for processing

@@ -52,6 +52,7 @@ def main():
     end = time.time()
     fps = processed_count / (end - start)
     print("Benchmark completed")
+    print(f"Resolution: {args.size}x{args.size}, batch size: {args.batch_size}, steps: {args.steps}")
     print(f"Time for {args.images} images: {end - start}")
     print(f"FPS: {fps}")
 
