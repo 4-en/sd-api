@@ -30,7 +30,7 @@ def main():
 
     image2image = AutoPipelineForImage2Image.from_pretrained(args.model, torch_dtype=torch.float16, variant="fp16")
     image2image.to("cuda")
-    image2image.enable_xformers_memory_efficient_attention()
+    #image2image.enable_xformers_memory_efficient_attention()
 
     # compile unet (windows not supported)
     #image2image.unet = torch.compile(image2image.unet, mode="reduce-overhead", fullgraph=True)
