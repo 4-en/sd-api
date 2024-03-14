@@ -38,7 +38,7 @@ class SdTurboApi:
         self.app = FastAPI()
         self.image2image = AutoPipelineForImage2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
         self.image2image.to("cuda")
-        #self.image2image.enable_xformers_memory_efficient_attention() # enable memory efficient attention
+        self.image2image.enable_xformers_memory_efficient_attention() # enable memory efficient attention
 
         self.transform = transforms.Compose([
             transforms.Resize((512,512)),

@@ -5,7 +5,7 @@ import numpy as np
 import random
 
 SEED = 123
-SIZE = 512
+SIZE = 1024
 
 PROMPTS = [
     "a picture of a cute cat",
@@ -17,7 +17,6 @@ PROMPTS = [
 
 def randomize_seed():
     global SEED
-    return
     print("Randomizing seed")
     SEED = random.randint(0, 1000000)
 
@@ -29,7 +28,7 @@ def image2image(image_data, prompt=None):
 
     prompt = prompt or "a picture of a cute cat"
     #prompt = "a picture of a fairy with bright clothes, wings, and a magic wand, sitting in front of an open flame"
-    prompt = "a marble statue of a woman, ancient, roman"
+    #prompt = "a marble statue of a woman, ancient, roman"
 
     data = {
         "image_data": image_data,
@@ -37,7 +36,7 @@ def image2image(image_data, prompt=None):
         "num_inference_steps": 2,
         "guidance_scale": 1.0,
         "seed": SEED,
-        "strength": 0.8,
+        "strength": 0.5,
         "size": (SIZE, SIZE)
     }
 
@@ -125,7 +124,7 @@ def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps)
         if t_start - last_prompt_change > time_per_prompt:
             prompt_idx = (prompt_idx + 1) % len(PROMPTS)
             last_prompt_change = t_start
-            randomize_seed()
+            
 
 
         if t_start >= next_frame_time:

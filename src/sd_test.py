@@ -11,7 +11,7 @@ pipe.to("cuda")
 # load lora file
 adapter_id = "lora_test.safetensors"
 
-pipe.load_lora_weights(adapter_id)
+#pipe.load_lora_weights(adapter_id)
 
 prompt = "a person"
 image = pipe(prompt=prompt, num_inference_steps=1, guidance_scale=0.0).images[0]
