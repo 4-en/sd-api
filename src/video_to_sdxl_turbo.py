@@ -17,6 +17,7 @@ PROMPTS = [
 
 def randomize_seed():
     global SEED
+    return
     print("Randomizing seed")
     SEED = random.randint(0, 1000000)
 
@@ -27,6 +28,8 @@ def image2image(image_data, prompt=None):
     url = "http://10.35.2.135:8000/image2image"
 
     prompt = prompt or "a picture of a cute cat"
+    #prompt = "a picture of a fairy with bright clothes, wings, and a magic wand, sitting in front of an open flame"
+    prompt = "a marble statue of a woman, ancient, roman"
 
     data = {
         "image_data": image_data,
@@ -69,6 +72,10 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
             # scale to 1024x1024
             frame = cv2.resize(frame, (1024, 1024))
             d_time = time.time() - last_frame_time
+
+            # mirror image
+            frame = cv2.flip(frame, 1)
+
             last_frame_time = time.time()
 
             # fps top left

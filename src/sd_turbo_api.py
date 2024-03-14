@@ -36,7 +36,7 @@ class Image2ImageResponse(BaseModel):
 class SdTurboApi:
     def __init__(self):
         self.app = FastAPI()
-        self.image2image = AutoPipelineForImage2Image.from_pretrained("stabilityai/sd-turbo", torch_dtype=torch.float16, variant="fp16")
+        self.image2image = AutoPipelineForImage2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
         self.image2image.to("cuda")
         #self.image2image.enable_xformers_memory_efficient_attention() # enable memory efficient attention
 
@@ -44,6 +44,8 @@ class SdTurboApi:
             transforms.Resize((512,512)),
             transforms.ToTensor()
         ])
+
+        self.transform_size = 512
 
         self.to_PIL = transforms.ToPILImage()
 
@@ -59,11 +61,13 @@ class SdTurboApi:
             strength = request.strength
             size = request.size
 
-            # change transform
-            self.transform = transforms.Compose([
-                transforms.Resize(size),
-                transforms.ToTensor()
-            ])
+            # change transform if necessary
+            if self.transform_size not size:
+                self.transform = transforms.Compose([
+                    transforms.Resize(size),
+                    transforms.ToTensor()
+                ])
+                self.transform_size = size
 
             # print(f"seed: {seed}, strength: {strength}")
 
