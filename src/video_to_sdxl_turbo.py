@@ -5,7 +5,7 @@ import numpy as np
 import random
 
 SEED = 123
-SIZE = 1024
+SIZE = 512
 
 PROMPTS = [
     "a picture of a cute cat",
@@ -34,9 +34,9 @@ def image2image(image_data, prompt=None):
         "image_data": image_data,
         "prompt": prompt,
         "num_inference_steps": 2,
-        "guidance_scale": 1.0,
+        "guidance_scale": 0.0,
         "seed": SEED,
-        "strength": 0.5,
+        "strength": 0.8,
         "size": (SIZE, SIZE)
     }
 
