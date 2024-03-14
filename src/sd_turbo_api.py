@@ -110,7 +110,7 @@ class SdTurboApi:
             return Image2ImageResponse(image_data=converted_images)
         
     def run(self):
-        uvicorn.run(self.app, host="10.35.2.162", port=8000)
+        uvicorn.run(self.app, host="10.35.2.135", port=8000)
 
 if __name__ == "__main__":
     api = SdTurboApi()

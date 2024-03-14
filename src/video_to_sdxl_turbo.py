@@ -24,7 +24,7 @@ def image2image(image_data, prompt=None):
     global SEED
     # send request
     # 10.35.2.162 4090
-    url = "http://10.35.2.162:8000/image2image"
+    url = "http://10.35.2.135:8000/image2image"
 
     prompt = prompt or "a picture of a cute cat"
 
