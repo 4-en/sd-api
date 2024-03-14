@@ -62,7 +62,7 @@ class SdTurboApi:
             size = request.size
 
             # change transform if necessary
-            if self.transform_size not size:
+            if self.transform_size != size:
                 self.transform = transforms.Compose([
                     transforms.Resize(size),
                     transforms.ToTensor()
