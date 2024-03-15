@@ -3,9 +3,16 @@ import requests
 import base64
 import numpy as np
 import random
+import argparse
+
+# multiprocessing
+import multiprocessing
+from multiprocessing import Process, Queue, Condition
 
 SEED = 123
 SIZE = 512
+
+
 
 PROMPTS = [
     "a picture of a cute cat",
@@ -28,7 +35,7 @@ def image2image(image_data, prompt=None):
 
     prompt = prompt or "a picture of a cute cat"
     #prompt = "a picture of a fairy with bright clothes, wings, and a magic wand, sitting in front of an open flame"
-    #prompt = "a marble statue of a woman, ancient, roman"
+    prompt = "a marble statue of a woman, ancient, roman"
 
     data = {
         "image_data": image_data,
@@ -108,6 +115,8 @@ def process_and_display(frame_queue, processed_frame_queue, target_fps):
 
     running = False
 
+
+
 def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps):
     cap = cv2.VideoCapture(0)
     batch = []
@@ -169,7 +178,9 @@ def capture_and_send(frame_queue, processed_frame_queue, batch_size, target_fps)
 
     running = False
 
+
 if __name__ == "__main__":
+
     batch_size = 1
     target_fps = 10
 
