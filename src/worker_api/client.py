@@ -13,6 +13,7 @@ class Client:
         self.worker_addresses = []
         self.running = False
         self.reply_handler = reply_handler
+        self.running = False
 
     async def discover_workers(self):
         socket = self.context.socket(zmq.RADIO)
@@ -23,7 +24,7 @@ class Client:
         response_socket = self.context.socket(zmq.DISH)
         response_socket.bind(f"udp://*:{self.worker_task_port}")
         response_socket.join('tasks')
-        while True:
+        while self.running:
             try:
                 message = await response_socket.recv_string(zmq.NOBLOCK)  # Non-blocking
                 worker_info = WorkerInfo.from_json(message)
@@ -76,8 +77,8 @@ class Client:
 
     def start(self):
         loop = asyncio.get_event_loop()
+        self.running = True
         loop.run_until_complete(self.discover_workers())
-
         # check if we found any workers
         if len(self.worker_addresses) == 0:
             print("No workers found")
@@ -86,6 +87,8 @@ class Client:
         print(f"Starting with {len(self.worker_addresses)} workers")
 
         loop.run_until_complete(self.wait_for_reply())
+        loop.close()
+        self.running = False
 
 if __name__ == "__main__":
     client = Client(discovery_port=5555, worker_task_port=5556)
