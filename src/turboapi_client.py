@@ -197,6 +197,7 @@ class VideoCapture:
         self.init_source()
 
         self.last_frame_times = [time.time()] * 10
+        self.seed = random.randint(0, 1000000)
 
     def get_fps(self):
         mean = np.mean(np.diff(self.last_frame_times))
@@ -287,9 +288,9 @@ class VideoCapture:
             "prompt": prompt,
             "num_inference_steps": 2,
             "guidance_scale": 0.0,
-            "seed": SEED,
+            "seed": self.seed,
             "strength": 0.8,
-            "size": (SIZE, SIZE)
+            "size": self.resolution
         }
 
         response = requests.post(url, json=data)
