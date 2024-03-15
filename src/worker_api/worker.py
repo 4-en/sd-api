@@ -3,6 +3,8 @@ import json
 import threading
 import asyncio
 
+import queue
+
 from shared import WorkerInfo, WorkerRequest, WorkerReply
 
 
@@ -11,7 +13,7 @@ class Worker:
         self.discovery_port = discovery_port
         self.task_port = task_port
         self.context = zmq.Context()
-        self.queue = threading.Queue()
+        self.queue = queue.Queue()
         self.task_worker = threading.Thread(target=self.work_on_tasks)
         self.running = False
         self.handle_task = handle_task
@@ -30,10 +32,11 @@ class Worker:
                 print(f"Error processing task: {e}")
     
     async def listen_for_discovery(self):
+        print("Listening for discovery")
         socket = self.context.socket(zmq.DISH)
         socket.bind(f"udp://*:{self.discovery_port}")
         socket.join('discovery')
-        while True:
+        while self.running:
             message = await socket.recv_string()
             if message == "discover":
                 response_socket = self.context.socket(zmq.RADIO)
@@ -42,12 +45,13 @@ class Worker:
                 await response_socket.send_json(my_info)
     
     async def listen_for_tasks(self):
+        print("Listening for tasks")
         socket = self.context.socket(zmq.DISH)
         socket.bind(f"udp://*:{self.task_port}")
-        while True:
+        while self.running:
             task = await socket.recv_json()
             worker_request = WorkerRequest(**task)
-            self.queue.put(task)
+            self.queue.put(worker_request)
 
     def send_reply(self, reply):
         asyncio.create_task(self._send_reply(reply))
