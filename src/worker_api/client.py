@@ -5,6 +5,7 @@ import asyncio
 from shared import WorkerInfo, WorkerRequest, WorkerReply
 
 
+
 class Client:
     def __init__(self, discovery_port=5555, worker_task_port=5556, reply_handler=None):
         self.discovery_port = discovery_port

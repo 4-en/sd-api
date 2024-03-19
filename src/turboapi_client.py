@@ -6,20 +6,31 @@ import random
 import argparse
 
 # threading
-from threading import Thread
+from threading import Thread, Condition
 
 class FrameBuffer:
     def __init__(self, size=3):
         self.size = size
         self.frames = [None] * size
         self.idx = 0
+        self.last_new_frame = -1
+        self.condition = Condition()
 
     def add_frame(self, frame):
-        self.frames[self.idx] = frame
-        self.idx = (self.idx + 1) % self.size
+        with self.condition:  # Acquire the condition lock
+            self.frames[self.idx] = frame
+            self.idx = (self.idx + 1) % self.size
+            self.condition.notify_all()  # Notify all waiting threads
 
     def get_frame(self):
         return self.frames[self.idx]
+    
+    def get_new_frame(self):
+        with self.condition:  # Acquire the condition lock
+            while self.last_new_frame == self.idx:
+                self.condition.wait()  # Wait until notified
+            self.last_new_frame = self.idx
+            return self.get_frame()
 
     def get_frame_at(self, idx):
         return self.frames[idx % self.size]
@@ -231,8 +242,8 @@ class VideoCapture:
         return frame
 
     def send_frame(self, frame):
-        self.receive_frame(frame) # for testing, remove later
-        return
+        #self.receive_frame(frame) # for testing, remove later
+        #return
         res = self.image2image_rest(frame)
         for img in res:
             self.receive_frame(img)
@@ -248,6 +259,9 @@ class VideoCapture:
         while self.running:
             try:
                 frame = self.get_next_frame()
+                if frame is None:
+                    self.running = False
+                    break
                 frame = self.process_frame(frame)
                 self.raw_buffer.add_frame(frame)
                 self.send_frame(frame)
@@ -267,7 +281,7 @@ class VideoCapture:
     def stop(self):
         self.running = False
 
-    def image2image_rest(self, frame, prompt=None):
+    def image2image_rest(self, frame, prompt=None, **request_kwargs):
         # send request
         # 10.35.2.162 4090
         url = "http://10.35.2.135:8000/image2image"
@@ -293,6 +307,9 @@ class VideoCapture:
             "size": self.resolution
         }
 
+        # replace data with request_kwargs if any
+        data.update(request_kwargs)
+
         response = requests.post(url, json=data)
 
         # get response
@@ -307,6 +324,24 @@ class VideoCapture:
             image = cv2.imdecode(image, cv2.IMREAD_COLOR)
             res.append(image)
         return res
+    
+
+class ManualCapture(VideoCapture):
+    def __init__(self):
+        super().__init__()
+        self.input_buffer = FrameBuffer()
+
+    def add_input_frame(self, frame):
+        self.input_buffer.add_frame(frame)
+
+    def init_source(self):
+        pass
+
+    def get_next_frame(self) -> np.ndarray:
+        return self.input_buffer.get_new_frame()
+
+    def release(self):
+        pass
 
 import zmq
 class VideoCaptureZMQ(VideoCapture):
@@ -353,8 +388,8 @@ if __name__ == "__main__":
     vc = VideoCapture() if not args.zmq else VideoCaptureZMQ(args.zmq_port, args.zmq_ip)
 
     # create video display object
-    #vd = VideoDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
-    vd = HeadBasedDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
+    vd = VideoDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
+    #vd = HeadBasedDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
 
     # start video capture in separate thread
     capture_thread = Thread(target=vc.start, daemon=True, name="CaptureThread")
