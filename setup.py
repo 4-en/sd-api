@@ -2,8 +2,11 @@ from setuptools import setup, find_packages
 
 # Function to read the list of requirements from requirements.txt
 def load_requirements(filename='requirements.txt'):
-    with open(filename, 'r') as f:
-        return f.read().splitlines()
+    with open(filename, 'r', encoding='utf-16-le') as f:
+        lines = f.read().splitlines()
+        # remove '\ufeff' from the start of the first line
+        lines[0] = lines[0].replace('\ufeff', '')
+        return lines
 
 setup(
     name='SDAPI',
