@@ -1,2 +1,5 @@
 # sd-api
-simple api for stable diffusion models
+Simple api for running hf diffusion models.
+
+## WIP
+(may not work atm)
