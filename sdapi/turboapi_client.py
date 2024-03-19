@@ -192,7 +192,7 @@ class HeadBasedDisplay(VideoDisplay):
         self.head_size_calculator_thread.join()    
 
 class DistanceBasedDisplay(VideoDisplay):
-    def __init__(self, frame_source: callable, processed_frame_source: callable, target_fps: int = 30, window_name: str = "Video Display", head_size_threshold: int = 50):
+    def __init__(self, frame_source: callable, processed_frame_source: callable, target_fps: int = 30, window_name: str = "Video Display", head_size_threshold: int = 100):
         super().__init__(frame_source, target_fps, window_name)
         self.processed_frame_source = processed_frame_source
         self.head_size_calculator = HeadSizeCalculator()
@@ -202,6 +202,11 @@ class DistanceBasedDisplay(VideoDisplay):
 
         def frame_source_wrapper():
             frame = self.original_frame_source()
+
+            # check if frame is none
+            if frame is None:
+                return None
+
             self.head_size_calculator.add_frame(frame)
             size = self.head_size_calculator.get_head_size()
 
@@ -209,8 +214,10 @@ class DistanceBasedDisplay(VideoDisplay):
                 # Head is close, attempt to show a transformed image
                 processed_frame = self.processed_frame_source()
                 if processed_frame is not None:
-                    return processed_frame
-            # If head is far or no processed frame available, show default camera input
+                    frame = processed_frame
+            # upscale to 1080x1080
+            # TODO: control with parameter
+            frame = cv2.resize(frame, (1080, 1080))
             return frame
         
         self.frame_source = frame_source_wrapper
@@ -242,6 +249,7 @@ class VideoCapture:
 
         self.last_frame_times = [time.time()] * 10
         self.seed = random.randint(0, 1000000)
+        self.request_thread = Thread(target=self._work_on_requests, daemon=True, name="RequestThread")
 
     def get_fps(self):
         mean = np.mean(np.diff(self.last_frame_times))
@@ -273,6 +281,15 @@ class VideoCapture:
                       (frame.shape[1] - self.resolution[1]) // 2:(frame.shape[1] + self.resolution[1]) // 2]
 
         return frame
+    
+    def _work_on_requests(self):
+        while self.running:
+            frame = self.raw_buffer.get_new_frame()
+            if not self.running:
+                break
+            if frame is None:
+                continue
+            self.send_frame(frame)
 
     def send_frame(self, frame):
         #self.receive_frame(frame) # for testing, remove later
@@ -297,7 +314,8 @@ class VideoCapture:
                     break
                 frame = self.process_frame(frame)
                 self.raw_buffer.add_frame(frame)
-                self.send_frame(frame)
+                #self.send_frame(frame)
+                # this is now done in a separate thread
             except Exception as e:
                 print(e)
                 self.running = False
@@ -309,17 +327,19 @@ class VideoCapture:
             print("Already running")
             return
         self.running = True
+        self.request_thread.start()
         self._run()
 
     def stop(self):
         self.running = False
+        self.raw_buffer.add_frame(None)
 
     def image2image_rest(self, frame, prompt=None, **request_kwargs):
         # send request
         # 10.35.2.162 4090
         url = "http://10.35.2.135:8000/image2image"
 
-        prompt = prompt or "a picture of a cute cat"
+        prompt = prompt or "a picture of a hairy ape"
         #prompt = "a picture of a fairy with bright clothes, wings, and a magic wand, sitting in front of an open flame"
         #prompt = "a marble statue of a woman, ancient, roman"
 
