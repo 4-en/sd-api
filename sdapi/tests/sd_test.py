@@ -9,11 +9,11 @@ pipe = AutoPipelineForText2Image.from_pretrained("stabilityai/sdxl-turbo", torch
 pipe.to("cuda")
 
 # load lora file
-adapter_id = "lora_test.safetensors"
+#adapter_id = "lora_test.safetensors"
 
-pipe.load_lora_weights(adapter_id)
+#pipe.load_lora_weights(adapter_id)
 
-prompt = "a person"
+prompt = "a person giving thumbs up in an office setting"
 image = pipe(prompt=prompt, num_inference_steps=1, guidance_scale=0.0).images[0]
 
 image.show()
@@ -23,10 +23,13 @@ from diffusers import AutoPipelineForImage2Image
 from diffusers.utils import load_image
 import torch
 
-pipe = AutoPipelineForImage2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
+pipe = AutoPipelineForImage2Image.from_pipe(pipe)
 pipe.to("cuda")
 
-init_image = load_image("https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/cat.png").resize((512, 512))
-prompt = "a person"
+init_image = image
+prompt = "a hairy ape with a banana"
 
-image = pipe(prompt, image=init_image, num_inference_steps=2, strength=0.5, guidance_scale=0.0).images[0]
+for i in [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+    gen = torch.manual_seed(0)
+    image = pipe(prompt, image=init_image, num_inference_steps=2, strength=i, guidance_scale=0.0, generator=gen).images[0]
+    image.show()

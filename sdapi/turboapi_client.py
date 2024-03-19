@@ -197,7 +197,8 @@ class DistanceBasedDisplay(VideoDisplay):
         self.processed_frame_source = processed_frame_source
         self.head_size_calculator = HeadSizeCalculator()
         self.head_threshold = head_size_threshold
-
+        self.head_is_close = False
+        self.threshold_change = 5 # makes it more difficult to change the threshold to avoid flickering
         self.original_frame_source = self.frame_source
 
         def frame_source_wrapper():
@@ -210,11 +211,20 @@ class DistanceBasedDisplay(VideoDisplay):
             self.head_size_calculator.add_frame(frame)
             size = self.head_size_calculator.get_head_size()
 
+            if size != -1:
+                if self.head_is_close:
+                    size += self.threshold_change
+                else:
+                    size -= self.threshold_change
+
             if size != -1 and size > self.head_threshold:
+                self.head_is_close = True
                 # Head is close, attempt to show a transformed image
                 processed_frame = self.processed_frame_source()
                 if processed_frame is not None:
                     frame = processed_frame
+            else:
+                self.head_is_close = False
             # upscale to 1080x1080
             # TODO: control with parameter
             frame = cv2.resize(frame, (1080, 1080))
