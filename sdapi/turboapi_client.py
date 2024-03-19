@@ -191,6 +191,39 @@ class HeadBasedDisplay(VideoDisplay):
         self.head_size_calculator.running = False
         self.head_size_calculator_thread.join()    
 
+class DistanceBasedDisplay(VideoDisplay):
+    def __init__(self, frame_source: callable, processed_frame_source: callable, target_fps: int = 30, window_name: str = "Video Display", head_size_threshold: int = 50):
+        super().__init__(frame_source, target_fps, window_name)
+        self.processed_frame_source = processed_frame_source
+        self.head_size_calculator = HeadSizeCalculator()
+        self.head_threshold = head_size_threshold
+
+        self.original_frame_source = self.frame_source
+
+        def frame_source_wrapper():
+            frame = self.original_frame_source()
+            self.head_size_calculator.add_frame(frame)
+            size = self.head_size_calculator.get_head_size()
+
+            if size != -1 and size > self.head_threshold:
+                # Head is close, attempt to show a transformed image
+                processed_frame = self.processed_frame_source()
+                if processed_frame is not None:
+                    return processed_frame
+            # If head is far or no processed frame available, show default camera input
+            return frame
+        
+        self.frame_source = frame_source_wrapper
+
+    def start(self):
+        # Start the head size calculator in a separate thread
+        head_size_calculator_thread = Thread(target=self.head_size_calculator.start, daemon=True, name="HeadSizeCalculatorThread")
+        head_size_calculator_thread.start()
+        super().start()
+
+        # After stopping the display, ensure we also stop the head size calculator
+        self.head_size_calculator.running = False
+        head_size_calculator_thread.join()
 
 
 class VideoCapture:
@@ -326,6 +359,8 @@ class VideoCapture:
         return res
     
 
+    
+
 class ManualCapture(VideoCapture):
     def __init__(self):
         super().__init__()
@@ -388,8 +423,9 @@ if __name__ == "__main__":
     vc = VideoCapture() if not args.zmq else VideoCaptureZMQ(args.zmq_port, args.zmq_ip)
 
     # create video display object
-    vd = VideoDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
+    #vd = VideoDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
     #vd = HeadBasedDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
+    vd = DistanceBasedDisplay(vc.raw_buffer.get_frame, vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
 
     # start video capture in separate thread
     capture_thread = Thread(target=vc.start, daemon=True, name="CaptureThread")
