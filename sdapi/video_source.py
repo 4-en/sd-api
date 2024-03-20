@@ -41,6 +41,7 @@ class CVSource(VideoSource):
             ret, frame = self.cap.read()
             if not ret:
                 raise ValueError("Unable to read frame from video source", self.source)
+            
         return frame
 
     def release(self):

@@ -242,19 +242,19 @@ class DistanceBasedDisplay(VideoDisplay):
         self.head_size_calculator.running = False
         head_size_calculator_thread.join()
 
-
+from video_source import VideoSource, CVSource, ZMQSource
 class VideoCapture:
     """
     Class to capture video from webcam or other source and send it to a processing pipeline
     """
-    def __init__(self):
+    def __init__(self, video_source: VideoSource = None, sd_address: str = "http://localhost:8000/image2image"):
         self.resolution = (512, 512)
         self.fps = -1
         self.running = False
-
+        self.sd_address = sd_address
         self.processed_buffer = FrameBuffer()
         self.raw_buffer = FrameBuffer()
-
+        self.video_source = video_source or CVSource(0)
         self.init_source()
 
         self.last_frame_times = [time.time()] * 10
@@ -270,16 +270,14 @@ class VideoCapture:
 
 
     def get_next_frame(self) -> np.ndarray:
-        succ, frame = self.cap.read()
-        if not succ:
-            raise Exception("Failed to capture frame")
-        return frame
+        return self.video_source.get_frame()
     
     def init_source(self):
-        self.cap = cv2.VideoCapture(0)
+        self.video_source.init_source()
 
     def release(self):
-        self.cap.release()
+        print("Shutting down")
+        self.video_source.release()
 
     def process_frame(self, frame) -> np.ndarray:
         # scale so that width and height are at least self.resolution
@@ -319,9 +317,10 @@ class VideoCapture:
         while self.running:
             try:
                 frame = self.get_next_frame()
-                if frame is None:
-                    self.running = False
+                if not self.running:
                     break
+                if frame is None:
+                    continue
                 frame = self.process_frame(frame)
                 self.raw_buffer.add_frame(frame)
                 #self.send_frame(frame)
@@ -347,7 +346,7 @@ class VideoCapture:
     def image2image_rest(self, frame, prompt=None, **request_kwargs):
         # send request
         # 10.35.2.162 4090
-        url = "http://10.35.2.135:8000/image2image"
+        url = self.sd_address
 
         prompt = prompt or "a picture of a hairy ape"
         #prompt = "a picture of a fairy with bright clothes, wings, and a magic wand, sitting in front of an open flame"
@@ -431,26 +430,33 @@ class VideoCaptureZMQ(VideoCapture):
         self.socket.close()
         self.context.term()
 
-
+def get_source(video_source_name:str=0) -> VideoSource:
+    """
+    Returns a video source based on the given string
+    """
+    if video_source_name.isdigit():
+        return CVSource(int(video_source_name))
+    elif video_source_name.startswith("zmq:"):
+        port = video_source_name.split(":")[1]
+        return ZMQSource(port)
+    else:
+        return CVSource(video_source_name)
 
 def parse_args(args=None):
-    parser = argparse.ArgumentParser(description="Capture and process video from webcam")
-
-    # enable zmq
-    parser.add_argument("--zmq", action="store_true", help="Enable ZMQ communication")
-
-    # zmq args
-    parser.add_argument("--zmq-port", type=int, default=5555, help="Port for ZMQ communication")
-    parser.add_argument("--zmq-ip", type=str, default="localhost", help="IP for ZMQ communication")
+    parser = argparse.ArgumentParser(description="Run a video source with a hand tracker and a stable diffusion client")
+    parser.add_argument("--video_source", type=str, default="0", help="The video source to use. Can be a file path or a camera index or zmq:port")
+    parser.add_argument("--sd-address", type=str, default="http://10.35.2.135:8000/image2image", help="The address of the stable diffusion server endpoint")
     return parser.parse_args(args)
 
 if __name__ == "__main__":
 
     args = parse_args()
 
+    source = get_source(args.video_source)
 
     # create video capture object
-    vc = VideoCapture() if not args.zmq else VideoCaptureZMQ(args.zmq_port, args.zmq_ip)
+    #vc = VideoCapture() if not args.zmq else VideoCaptureZMQ(args.zmq_port, args.zmq_ip)
+    vc = VideoCapture(source, args.sd_address)
 
     # create video display object
     #vd = VideoDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
