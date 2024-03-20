@@ -131,9 +131,9 @@ class SdTurboApi:
 
 _mapping = {
         "xl_turbo": "stabilityai/sdxl-turbo",
-        "turbo": "stabilityai/sdl-turbo",
-        "xl": "stabilityai/sdm-turbo",
-        "base": "stabilityai/sds-turbo"
+        "turbo": "stabilityai/sd-turbo",
+        "xl": "stabilityai/sdxl",
+        "base": "stabilityai/sd-base",
     }
 
 def get_model_name(short_name: str) -> str:
