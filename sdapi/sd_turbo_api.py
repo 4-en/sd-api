@@ -8,6 +8,7 @@ import random
 import base64
 import PIL
 from io import BytesIO
+import sys
 
 # fastapi
 from fastapi import FastAPI
@@ -39,6 +40,12 @@ class SdTurboApi:
         self.image2image = AutoPipelineForImage2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
         self.image2image.to("cuda")
         self.image2image.enable_xformers_memory_efficient_attention() # enable memory efficient attention
+
+        # if linux, compile model
+        if "linux" in sys.platform:
+            self.image2image.unet = torch.compile(image2image.unet, mode="reduce-overhead", fullgraph=True)
+
+        self.image2image.upcast_vae()
 
         self.transform = transforms.Compose([
             transforms.Resize((512,512)),

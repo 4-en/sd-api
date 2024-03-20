@@ -455,7 +455,7 @@ if __name__ == "__main__":
     # create video display object
     #vd = VideoDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
     #vd = HeadBasedDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
-    vd = DistanceBasedDisplay(vc.raw_buffer.get_frame, vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
+    vd = DistanceBasedDisplay(vc.raw_buffer.get_frame, vc.processed_buffer.get_frame, 60, "SDXL-Turbo")
 
     # start video capture in separate thread
     capture_thread = Thread(target=vc.start, daemon=True, name="CaptureThread")
