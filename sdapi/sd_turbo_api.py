@@ -10,6 +10,9 @@ import PIL
 from io import BytesIO
 import sys
 
+import torch._dynamo
+torch._dynamo.config.suppress_errors = True
+
 # fastapi
 from fastapi import FastAPI
 
@@ -43,6 +46,7 @@ class SdTurboApi:
 
         # if linux, compile model
         if "linux" in sys.platform:
+            print("Compiling model")
             self.image2image.unet = torch.compile(self.image2image.unet, mode="reduce-overhead", fullgraph=True)
 
         self.image2image.upcast_vae()
