@@ -1,9 +1,6 @@
 # sd-api
 Simple api for running hf diffusion models.
 
-## WIP
-(may not work atm)
-
 ### Setup
 - Create new Environment (optional)
   - python -m venv venv && source venv/bin/activate
