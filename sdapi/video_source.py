@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import cv2
 import zmq
+import base64
+import numpy as np
 
 class VideoSource(ABC):
     """
@@ -61,8 +63,11 @@ class ZMQSource(VideoSource):
         self.socket.bind(f"tcp://*:{self.port}")
 
     def get_frame(self):
-        frame = self.socket.recv()
-        return frame
+        encoded_image = self.socket.recv()
+        image_data = base64.b64decode(encoded_image)
+        nparr = np.frombuffer(image_data, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        return image
 
     def release(self):
         self.socket.close()
