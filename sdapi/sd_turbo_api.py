@@ -43,7 +43,7 @@ class SdTurboApi:
 
         # if linux, compile model
         if "linux" in sys.platform:
-            self.image2image.unet = torch.compile(image2image.unet, mode="reduce-overhead", fullgraph=True)
+            self.image2image.unet = torch.compile(self.image2image.unet, mode="reduce-overhead", fullgraph=True)
 
         self.image2image.upcast_vae()
 
