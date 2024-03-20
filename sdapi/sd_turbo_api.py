@@ -49,7 +49,9 @@ class SdTurboApi:
             print("Compiling model")
             self.image2image.unet = torch.compile(self.image2image.unet, mode="reduce-overhead", fullgraph=True)
 
-        self.image2image.upcast_vae()
+        # if xl-turbo, upcast vae
+        if "xl" in model_name:
+            self.image2image.upcast_vae()
 
         self.transform = transforms.Compose([
             transforms.Resize((512,512)),
