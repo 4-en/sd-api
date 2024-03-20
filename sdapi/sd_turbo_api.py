@@ -9,6 +9,7 @@ import base64
 import PIL
 from io import BytesIO
 import sys
+import argparse
 
 
 # fastapi
@@ -29,6 +30,7 @@ class Image2ImageRequest(BaseModel):
     guidance_scale: float = 0.0
     strength: float = 0.5 # noise strength
     size: tuple[int, int] = (512, 512)
+    timesteps: list[int] | None = None
 
 class Image2ImageResponse(BaseModel):
     image_data: str | list[str] # base64 encoded image or list of base64 encoded images
@@ -36,9 +38,9 @@ class Image2ImageResponse(BaseModel):
 
 # simple fastapi app for sd-turbo image to image
 class SdTurboApi:
-    def __init__(self):
+    def __init__(self, model_name="stabilityai/sdxl-turbo"):
         self.app = FastAPI()
-        self.image2image = AutoPipelineForImage2Image.from_pretrained("stabilityai/sdxl-turbo", torch_dtype=torch.float16, variant="fp16")
+        self.image2image = AutoPipelineForImage2Image.from_pretrained(model_name, torch_dtype=torch.float16, variant="fp16")
         self.image2image.to("cuda")
         self.image2image.enable_xformers_memory_efficient_attention() # enable memory efficient attention
 
@@ -69,6 +71,8 @@ class SdTurboApi:
             guidance_scale = request.guidance_scale
             strength = request.strength
             size = request.size
+            timesteps = request.timesteps
+            _ = timesteps # TODO: implement timesteps usage
 
             # change transform if necessary
             if self.transform_size != size:
@@ -125,6 +129,24 @@ class SdTurboApi:
     def run(self):
         uvicorn.run(self.app, host="0.0.0.0", port=8000)
 
+_mapping = {
+        "xl_turbo": "stabilityai/sdxl-turbo",
+        "turbo": "stabilityai/sdl-turbo",
+        "xl": "stabilityai/sdm-turbo",
+        "base": "stabilityai/sds-turbo"
+    }
+
+def get_model_name(short_name: str) -> str:
+    short_name = short_name.lower()
+    return _mapping.get(short_name, "stabilityai/sdxl-turbo")
+
+def parse_args(args=None):
+    parser = argparse.ArgumentParser(description="Run sd-turbo api")
+    parser.add_argument("--model_name", type=str, default="xl_turbo", help="model name", choices=[short_name for short_name in _mapping.keys()])
+    return parser.parse_args(args)
+
 if __name__ == "__main__":
-    api = SdTurboApi()
+    args = parse_args()
+    model_name = get_model_name(args.model_name)
+    api = SdTurboApi(model_name=model_name)
     api.run()
