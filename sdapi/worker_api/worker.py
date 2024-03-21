@@ -1,78 +1,85 @@
-import zmq
-import json
-import threading
 import asyncio
+import zmq.asyncio
+from concurrent.futures import ThreadPoolExecutor
 
-import queue
-
-from shared import WorkerInfo, WorkerRequest, WorkerReply
-
+# for testing
+import time
+import random
 
 class Worker:
-    def __init__(self, discovery_port=5555, task_port=5556, handle_task=None):
-        self.discovery_port = discovery_port
-        self.task_port = task_port
-        self.context = zmq.Context()
-        self.queue = queue.Queue()
-        self.task_worker = threading.Thread(target=self.work_on_tasks)
+    def __init__(self, receive_port=5556):
+        self.receive_port = receive_port
+        self.context = zmq.asyncio.Context()
+        self.task_queue = asyncio.Queue()  # Queue for incoming tasks
+        self.response_sockets = {}  # Dictionary to hold dynamic PUSH sockets
+        self.executor = ThreadPoolExecutor(max_workers=1)  # Executor for task processing
         self.running = False
-        self.handle_task = handle_task
 
-    def work_on_tasks(self):
+    async def process_tasks(self):
         while self.running:
             try:
-                task = self.queue.get()
-                if task is None:
-                    break
-                worker_request = WorkerRequest(**task)
-                image_data = self.handle_task(worker_request)
-                reply = WorkerReply(frame_id=worker_request.frame_id, image_data=image_data, current_queue=self.queue.qsize())
-                self.send_reply(reply)
-            except Exception as e:
-                print(f"Error processing task: {e}")
-    
-    async def listen_for_discovery(self):
-        print("Listening for discovery")
-        socket = self.context.socket(zmq.DISH)
-        socket.bind(f"udp://*:{self.discovery_port}")
-        socket.join('discovery')
-        while self.running:
-            message = await socket.recv_string()
-            if message == "discover":
-                response_socket = self.context.socket(zmq.RADIO)
-                response_socket.connect(f"udp://client_ip:{self.task_port}")
-                my_info = WorkerInfo(ip="worker_ip", task_port=self.task_port, queue_size=self.queue.qsize())
-                await response_socket.send_json(my_info)
-    
-    async def listen_for_tasks(self):
-        print("Listening for tasks")
-        socket = self.context.socket(zmq.DISH)
-        socket.bind(f"udp://*:{self.task_port}")
-        while self.running:
-            task = await socket.recv_json()
-            worker_request = WorkerRequest(**task)
-            self.queue.put(worker_request)
+                task_json = await asyncio.wait_for(self.task_queue.get(), timeout=1)
 
-    def send_reply(self, reply):
-        asyncio.create_task(self._send_reply(reply))
+                # Process the task in the executor to prevent blocking the event loop
+                result = await asyncio.get_event_loop().run_in_executor(
+                    self.executor, self.process_task, task_json)
 
-    async def _send_reply(self, reply):
-        socket = self.context.socket(zmq.DISH)
-        socket.connect(f"udp://client_ip:{self.discovery_port}")
-        await socket.send_json(reply)
+                # check if the result is None
+                if result is None:
+                    self.task_queue.task_done()
+                    continue
+                
+                # After processing, send the response
+                await self.send_response(result)
+                self.task_queue.task_done()
+            except asyncio.TimeoutError:
+                pass
 
-    def start(self):
-        loop = asyncio.get_event_loop()
-        tasks = [self.listen_for_discovery(), self.listen_for_tasks()]
+
+    def process_task(self, task_json):
+        # Simulate task processing that would block the event loop
+        # This is where you'd interact with the GPU or perform other intensive computations
+        time.sleep(random.random() * 2) # Sleep for a random amount of time, 0-2 seconds
+        task = task_json.get('task', None)
+        if task is None:
+            return None
+        return task_json
+
+    async def send_response(self, result):
+        sender_ip = result['sender_ip']
+        sender_port = result['sender_port']
+        sender_id = f"{sender_ip}:{sender_port}"
+
+        if sender_id not in self.response_sockets:
+            self.response_sockets[sender_id] = self.context.socket(zmq.PUSH)
+            self.response_sockets[sender_id].connect(f"tcp://{sender_ip}:{sender_port}")
+
+        socket = self.response_sockets[sender_id]
+        await socket.send_json(result)
+
+    async def run(self):
         self.running = True
-        self.task_worker.start()
-        loop.run_until_complete(asyncio.gather(*tasks))
-        loop.close()
+        pull_socket = self.context.socket(zmq.PULL)
+        pull_socket.bind(f"tcp://*:{self.receive_port}")
+
+        # Start the background task processing coroutine
+        asyncio.create_task(self.process_tasks())
+
+        while self.running:
+            try:
+                message = await asyncio.wait_for(pull_socket.recv_json(), timeout=1)
+                await self.task_queue.put(message)
+            except asyncio.TimeoutError:
+                pass
+
+
+    def stop(self):
         self.running = False
-        # add none to the queue to unblock the worker
-        self.queue.put(None)
-        self.task_worker.join()
+        # Close dynamic PUSH sockets
+        for socket in self.response_sockets.values():
+            socket.close()
+        self.response_sockets.clear()
 
 if __name__ == "__main__":
-    worker = Worker(discovery_port=5555, task_port=5556)
-    worker.start()
+    worker = Worker()
+    asyncio.run(worker.run())
