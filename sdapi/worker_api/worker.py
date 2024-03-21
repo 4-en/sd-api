@@ -21,6 +21,7 @@ class Worker:
             try:
                 task_json = await asyncio.wait_for(self.task_queue.get(), timeout=1)
 
+                print(f"{self} processing task: {task_json['task_id']}")
                 # get ip and port
                 sender_ip = task_json['sender_ip']
                 sender_port = task_json['sender_port']
@@ -63,6 +64,12 @@ class Worker:
         }
         return result
 
+    def __str__(self) -> str:
+        return f"Worker: {self.receive_port}, Queue Size: {self.task_queue.qsize()}"
+    
+    def __repr__(self) -> str:
+        return self.__str__()
+
     async def send_response(self, result, sender_ip=None, sender_port=None):
         sender_id = f"{sender_ip}:{sender_port}"
 
@@ -79,14 +86,30 @@ class Worker:
         pull_socket.bind(f"tcp://*:{self.receive_port}")
 
         # Start the background task processing coroutine
+        print(f"{self} creating process_tasks task")
         asyncio.create_task(self.process_tasks())
+
+        print(f"{self} started")
 
         while self.running:
             try:
+                print(f"{self} waiting for task")
                 message = await asyncio.wait_for(pull_socket.recv_json(), timeout=1)
                 await self.task_queue.put(message)
             except asyncio.TimeoutError:
                 pass
+
+        self.running = False
+        pull_socket.close()
+        print(f"{self} stopped")
+
+    def start(self, loop=None):
+        if self.running:
+            print("Worker already running")
+            return
+        self.loop = loop or asyncio.new_event_loop()
+        loop = self.loop
+        loop.run_until_complete(self.run())
 
 
     def stop(self):

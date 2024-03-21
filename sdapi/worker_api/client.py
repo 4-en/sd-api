@@ -9,11 +9,13 @@ from shared import WorkerInfo
 
 
 class Client:
-    def __init__(self, receive_port=5555, workers=["localhost:5556"]):
+    def __init__(self, receive_port=5555, workers=["localhost:5556"], my_ip="localhost"):
         self.receive_port = receive_port
+        self.my_ip = my_ip
         self.context = zmq.asyncio.Context()
         self.max_worker_queue = 3
 
+        self._next_task_id = 0
         self._next_worker_id = 0
         self.worker_addresses = []
         self.worker_sockets = {}
@@ -24,7 +26,11 @@ class Client:
         self.running = False
         self.ready_queue = Queue() # queue of completed tasks that can be collected
         self._last_result = None
-        self.loop = asyncio.get_event_loop()
+        self.loop = None
+
+    def _get_task_id(self):
+        self._next_task_id += 1
+        return self._next_task_id
 
     def _add_worker(self, ip, port):
         self.worker_addresses.append(WorkerInfo(ip, port, 0, self._next_worker_id))
@@ -72,10 +78,10 @@ class Client:
 
     async def _send_task(self, task):
         # find the worker with the smallest queue
-        min_queue = -1
+        min_queue = 999999
         min_worker = None
         for worker in self.worker_addresses:
-            if min_queue == -1 or worker.queue_size < min_queue and worker.queue_size < self.max_worker_queue:
+            if worker.queue_size < min_queue and worker.queue_size < self.max_worker_queue:
                 min_queue = worker.queue_size
                 min_worker = worker
 
@@ -87,7 +93,16 @@ class Client:
         if not self.running:
             return
         
+        message = {
+            'task': task,
+            'task_id': self._get_task_id(),
+            'worker_id': min_worker.id,
+            'sender_ip': self.my_ip,
+            'sender_port': self.receive_port
+        }
+        
         socket = self._get_send_socket(min_worker)
+        print(f"Sending task to {min_worker.ip}:{min_worker.port}")
         await socket.send_json(task)
         min_worker.queue_size += 1
 
@@ -113,8 +128,11 @@ class Client:
         socket.close()
 
 
-    def start(self):
-        self.loop = asyncio.get_event_loop()
+    def start(self, loop=None):
+        if self.running:
+            print("Client already running")
+            return
+        self.loop = loop or asyncio.new_event_loop()
         loop = self.loop
         self.running = True
         
