@@ -7,10 +7,11 @@ import time
 import random
 
 class Worker:
-    def __init__(self, receive_port=5556):
+    def __init__(self, receive_port=5556, task_callback=None):
         self.receive_port = receive_port
         self.context = zmq.asyncio.Context()
         self.task_queue = asyncio.Queue()  # Queue for incoming tasks
+        self.task_callback = task_callback # callback for processing tasks, returns result
         self.response_sockets = {}  # Dictionary to hold dynamic PUSH sockets
         self.executor = ThreadPoolExecutor(max_workers=1)  # Executor for task processing
         self.running = False
@@ -20,6 +21,10 @@ class Worker:
             try:
                 task_json = await asyncio.wait_for(self.task_queue.get(), timeout=1)
 
+                # get ip and port
+                sender_ip = task_json['sender_ip']
+                sender_port = task_json['sender_port']
+
                 # Process the task in the executor to prevent blocking the event loop
                 result = await asyncio.get_event_loop().run_in_executor(
                     self.executor, self.process_task, task_json)
@@ -28,9 +33,9 @@ class Worker:
                 if result is None:
                     self.task_queue.task_done()
                     continue
-                
+
                 # After processing, send the response
-                await self.send_response(result)
+                await self.send_response(result, sender_ip, sender_port)
                 self.task_queue.task_done()
             except asyncio.TimeoutError:
                 pass
@@ -39,15 +44,26 @@ class Worker:
     def process_task(self, task_json):
         # Simulate task processing that would block the event loop
         # This is where you'd interact with the GPU or perform other intensive computations
-        time.sleep(random.random() * 2) # Sleep for a random amount of time, 0-2 seconds
         task = task_json.get('task', None)
         if task is None:
             return None
-        return task_json
+        
+        # ... do something with task...
+        time.sleep(random.random() * 2) # Sleep for a random amount of time, 0-2 seconds
 
-    async def send_response(self, result):
-        sender_ip = result['sender_ip']
-        sender_port = result['sender_port']
+        task_result = None
+        if self.task_callback is not None:
+            task_result = self.task_callback(task)
+
+        result = {
+            'result': task_result,
+            'queue_size': self.task_queue.qsize(),
+            'worker_id': task_json['worker_id'],
+            'task_id': task_json['task_id']
+        }
+        return result
+
+    async def send_response(self, result, sender_ip=None, sender_port=None):
         sender_id = f"{sender_ip}:{sender_port}"
 
         if sender_id not in self.response_sockets:
