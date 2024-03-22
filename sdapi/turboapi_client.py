@@ -445,7 +445,7 @@ def get_source(video_source_name:str=0) -> VideoSource:
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description="Run a video source with a hand tracker and a stable diffusion client")
     parser.add_argument("--video_source", type=str, default="0", help="The video source to use. Can be a file path or a camera index or zmq:port")
-    parser.add_argument("--sd-address", type=str, default="http://10.35.2.135:8000/image2image", help="The address of the stable diffusion server endpoint")
+    parser.add_argument("--sd-address", type=str, default="http://10.35.2.162:8000/image2image", help="The address of the stable diffusion server endpoint")
     return parser.parse_args(args)
 
 if __name__ == "__main__":

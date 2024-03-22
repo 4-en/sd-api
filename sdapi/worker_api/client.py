@@ -3,6 +3,7 @@ import json
 import asyncio
 import zmq.asyncio
 from queue import Queue
+from sortedcontainers import SortedList
 
 from shared import WorkerInfo
 
@@ -13,8 +14,11 @@ class Client:
         self.receive_port = receive_port
         self.my_ip = my_ip
         self.context = zmq.asyncio.Context()
-        self.max_worker_queue = 3
+        self.max_worker_queue = 30
 
+        self._max_wait_size = 20
+        self._receive_in_order = True
+        self._next_expected_task_id = 0
         self._next_task_id = 0
         self._next_worker_id = 0
         self.worker_addresses = []
@@ -25,6 +29,7 @@ class Client:
 
         self.running = False
         self.ready_queue = Queue() # queue of completed tasks that can be collected
+        self.wait_for_turn_queue = SortedList(key=lambda x: x['task_id'])
         self._last_result = None
         self.loop = None
 
@@ -46,7 +51,7 @@ class Client:
                 return True
         return False
 
-    def send_task(self, task: str) -> bool:
+    def send_task(self, task: dict) -> bool:
         if not self.running or not self.is_worker_available():
             return False
         # create a task and send it to a worker
@@ -103,13 +108,69 @@ class Client:
         
         socket = self._get_send_socket(min_worker)
         print(f"Sending task to {min_worker.ip}:{min_worker.port}")
-        await socket.send_json(task)
+        await socket.send_json(message)
         min_worker.queue_size += 1
+
+    def _prepare_reply_for_receive(self, reply):
+        # prepare the reply to be received
+        result = reply['result']
+        task_id = reply['task_id']
+        # set next expected task id to the next task id
+        self._next_expected_task_id = task_id + 1
+        self.ready_queue.put(result)
+
+    def _set_queue_size(self, worker_id, queue_size):
+        for worker in self.worker_addresses:
+            if worker.id == worker_id:
+                worker.queue_size = queue_size
+                break
+
+    def _add_to_wait_queue(self, reply):
+        # add the reply to the wait queue if it is not in order
+        result = reply['result']
+        task_id = reply['task_id']
+
+        if task_id == self._next_expected_task_id:
+            # we can immediately put this in the ready queue, since it is the next expected task
+            self.ready_queue.put(result)
+            self._next_expected_task_id += 1
+            return
+        
+        # check if it is the next task_id or lower
+        if task_id < self._next_expected_task_id:
+            # ignore, since we can't return this in order
+            # for example, a video stream would play earlier frames if we return them out of order
+            return
+        
+        # add to the wait queue
+        self.wait_for_turn_queue.add(reply)
+
+        if len(self.wait_for_turn_queue) > self._max_wait_size:
+            # set the next expected task id to the next task id
+            self._next_expected_task_id = self.wait_for_turn_queue[0]['task_id']
+
+        while len(self.wait_for_turn_queue) > 0 and self._next_expected_task_id == self.wait_for_turn_queue[0]['task_id']:
+            # put the result in the ready queue
+            self.ready_queue.put(self.wait_for_turn_queue.pop(0)['result'])
+            self._next_expected_task_id += 1
+
+        
 
     def _handle_reply(self, reply):
         # handle the reply
-        # just add it to queue for now
-        self.ready_queue.put(reply)
+
+        # get worker id and decrease queue size
+        worker_id = reply['worker_id']
+        queue_size = reply['queue_size']
+        self._set_queue_size(worker_id, queue_size)
+
+        # if not in order, just put the result in the queue
+        if not self._receive_in_order:
+            self._prepare_reply_for_receive(reply)
+            return
+        
+        # if in order, check if it is the next expected task
+        self._add_to_wait_queue(reply)
 
 
     async def _wait_for_reply(self):
@@ -120,11 +181,11 @@ class Client:
             # timeout to check if still running
             try:
                 reply = await asyncio.wait_for(socket.recv_json(), timeout=1)
-                self.ready_queue.put(reply)
+                self._handle_reply(reply)
             except asyncio.TimeoutError:
                 pass
             except Exception as e:
-                print(e) # print, otherwise ignore and continue
+                raise e
         socket.close()
 
 

@@ -21,7 +21,7 @@ class Worker:
             try:
                 task_json = await asyncio.wait_for(self.task_queue.get(), timeout=1)
 
-                print(f"{self} processing task: {task_json['task_id']}")
+                #print(f"{self} processing task: {task_json['task_id']}")
                 # get ip and port
                 sender_ip = task_json['sender_ip']
                 sender_port = task_json['sender_port']
@@ -48,9 +48,6 @@ class Worker:
         task = task_json.get('task', None)
         if task is None:
             return None
-        
-        # ... do something with task...
-        time.sleep(random.random() * 2) # Sleep for a random amount of time, 0-2 seconds
 
         task_result = None
         if self.task_callback is not None:
@@ -86,14 +83,14 @@ class Worker:
         pull_socket.bind(f"tcp://*:{self.receive_port}")
 
         # Start the background task processing coroutine
-        print(f"{self} creating process_tasks task")
+        # print(f"{self} creating process_tasks task")
         asyncio.create_task(self.process_tasks())
 
         print(f"{self} started")
 
         while self.running:
             try:
-                print(f"{self} waiting for task")
+                # print(f"{self} waiting for task")
                 message = await asyncio.wait_for(pull_socket.recv_json(), timeout=1)
                 await self.task_queue.put(message)
             except asyncio.TimeoutError:
