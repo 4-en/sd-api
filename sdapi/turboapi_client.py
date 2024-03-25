@@ -445,6 +445,7 @@ def get_source(video_source_name:str=0) -> VideoSource:
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description="Run a video source with a hand tracker and a stable diffusion client")
     parser.add_argument("--video_source", type=str, default="0", help="The video source to use. Can be a file path or a camera index or zmq:port")
+    parser.add_argument("--display", type=str, default="default", help="The display type to use. Can be 'default' (always on), 'distance' (swap frame if head is close)")
     parser.add_argument("--sd-address", type=str, default="http://10.35.2.162:8000/image2image", help="The address of the stable diffusion server endpoint")
     return parser.parse_args(args)
 
@@ -454,14 +455,12 @@ if __name__ == "__main__":
 
     source = get_source(args.video_source)
 
-    # create video capture object
-    #vc = VideoCapture() if not args.zmq else VideoCaptureZMQ(args.zmq_port, args.zmq_ip)
     vc = VideoCapture(source, args.sd_address)
 
-    # create video display object
-    #vd = VideoDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
-    #vd = HeadBasedDisplay(vc.processed_buffer.get_frame, 30, "SDXL-Turbo")
-    vd = DistanceBasedDisplay(vc.raw_buffer.get_frame, vc.processed_buffer.get_frame, 60, "SDXL-Turbo")
+    if args.display == "distance":
+        vd = DistanceBasedDisplay(vc.raw_buffer.get_frame, vc.processed_buffer.get_frame, 60, "SDXL-Turbo")
+    else:
+        vd = VideoDisplay(vc.raw_buffer.get_frame, 60, "SDXL-Turbo")
 
     # start video capture in separate thread
     capture_thread = Thread(target=vc.start, daemon=True, name="CaptureThread")
