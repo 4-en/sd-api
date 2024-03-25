@@ -14,6 +14,7 @@ Runs a diffuser model on a server using fastapi
 ```
 python sd_api.py
 ```
+Use -h to see options
 #### Client
 Uses a server to convert an input video and show it in a window
 ```
