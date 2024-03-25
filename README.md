@@ -1,10 +1,11 @@
-# sd-api
+# SD-API
 Simple api for running hf diffusion models.
 
 ### Setup
 - Create new Environment (optional)
   - python -m venv venv && source venv/bin/activate
 - Install requirements
+  - You may need to install pytorch manually: https://pytorch.org/get-started/locally/
   - pip install -r requirements.txt
  
 ### Usage
